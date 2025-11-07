@@ -5,11 +5,10 @@ use std::{
 };
 
 use anyhow::{Ok, Result};
-use rayon::iter::{IndexedParallelIterator, IntoParallelRefIterator, ParallelIterator};
 use serde::Serialize;
 
 use crate::font::{
-  builder::Builder, config::Config, contour::contour, glyphs::Glyph, samples::Samples, sheet::Sheet,
+  builder::Builder, config::Config, contour::contour, glyphs::Glyph, sheet::Sheet,
 };
 
 const CONFIG_JSON: &str = "config.json";
@@ -19,25 +18,17 @@ const SAMPLES: &str = "samples";
 pub struct Project {
   config: Config,
   sheet: Sheet,
-  samples: Samples,
 }
 
 impl Project {
-  pub fn load(base: &Path) -> Result<Self> {
+  pub fn load(base: &Path) -> Self {
     let config = fs::read(base.join(CONFIG_JSON)).expect("No config.json file found");
     let config: Config =
       serde_json::from_slice(&config).expect("Could not deserialize config.json");
 
     let sheet = Sheet::new(base.join(SHEET_PNG));
 
-    let samples = Samples::load(&base.join(SAMPLES))?;
-
-    let project = Self {
-      config,
-      sheet,
-      samples,
-    };
-    Ok(project)
+    Self { config, sheet }
   }
 
   pub fn create(base: &Path, config: &Config) -> Result<()> {
@@ -80,7 +71,7 @@ impl Project {
     let glyph_pixels = self.sheet.read(&self.config)?;
     let glyph_chars = Glyph::glyphs();
     let mut glyphs: Vec<Glyph> = glyph_pixels
-      .par_iter()
+      .iter()
       .enumerate()
       .filter_map(|(i, c)| {
         let character = *glyph_chars.get(i)?;
@@ -104,10 +95,6 @@ impl Project {
 
   pub fn font_path(&self) -> PathBuf {
     PathBuf::from(format!("{}.ttf", self.config.metadata().font_name()))
-  }
-
-  pub fn samples(&self) -> &Samples {
-    &self.samples
   }
 
   pub fn config(&self) -> &Config {

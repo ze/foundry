@@ -1,9 +1,7 @@
-use std::path::PathBuf;
-
 use anyhow::Result;
-use clap::{Parser, Subcommand, arg, command};
+use clap::{Parser, Subcommand};
 
-use crate::cli::commands::{build, debug, init, server};
+use crate::cli::commands::{build, init, server};
 
 #[derive(Parser)]
 #[command(name = "foundry")]
@@ -16,10 +14,6 @@ pub struct Handler {
 enum Commands {
   Init,
   Build,
-  Debug {
-    #[arg(long)]
-    path: PathBuf,
-  },
   Server,
 }
 
@@ -30,7 +24,6 @@ impl Handler {
     match handler.command {
       Commands::Init => init(),
       Commands::Build => build(),
-      Commands::Debug { path } => debug(path),
       Commands::Server => server(),
     }
   }

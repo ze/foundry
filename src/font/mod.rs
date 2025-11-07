@@ -4,7 +4,6 @@ mod contour;
 mod glyphs;
 mod point;
 pub mod project;
-mod samples;
 mod sheet;
 pub mod subfamily;
 pub mod unicode_char;

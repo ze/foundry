@@ -1,11 +1,14 @@
+use std::sync::Arc;
+
 use crate::font::project::Project;
 
-pub struct RouterState {
-  project: Project,
+#[derive(Clone)]
+pub struct ApiState {
+  project: Arc<Project>,
 }
 
-impl RouterState {
-  pub fn new(project: Project) -> Self {
+impl ApiState {
+  pub fn new(project: Arc<Project>) -> Self {
     Self { project }
   }
 

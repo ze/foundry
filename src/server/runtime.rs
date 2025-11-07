@@ -1,17 +1,19 @@
-use anyhow::{Ok, Result};
-use axum::serve;
-use tokio::{net::TcpListener, runtime::Runtime};
+use std::{sync::Arc, time::Duration};
 
-use crate::{font::project::Project, server::router::router};
+use anyhow::Result;
+use tokio::runtime::Runtime;
+
+use crate::{font::project::Project, server::service::start_service};
 
 pub fn start_runtime(project: Project) -> Result<()> {
-  let runtime = Runtime::new()?;
-  runtime.block_on(async {
-    let app = router(project);
+  let project = Arc::new(project);
 
-    let listener = TcpListener::bind("0.0.0.0:3000").await.unwrap();
-    serve(listener, app).await.unwrap();
-  });
+  let runtime = Runtime::new()?;
+  let service = start_service(project);
+  runtime.block_on(service);
+
+  // https://github.com/tokio-rs/tokio/issues/2466
+  runtime.shutdown_timeout(Duration::ZERO);
 
   Ok(())
 }
