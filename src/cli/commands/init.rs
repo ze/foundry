@@ -1,12 +1,11 @@
 use std::{num::NonZeroU16, path::Path};
 
-use anyhow::{Context, Ok, Result};
+use anyhow::{Context, Result};
 use dialoguer::{Confirm, Input, Select, theme::ColorfulTheme};
 use strum::IntoEnumIterator;
 
 use crate::font::{
-  config::{Config, Dimensions, Metadata},
-  project::Project,
+  config::Config, dimensions::Dimensions, kerning::Kerning, metadata::Metadata, project::Project,
   subfamily::Subfamily,
 };
 
@@ -61,7 +60,8 @@ pub fn init() -> Result<()> {
 
   let metadata = Metadata::new(project_name, font_name, font_subfamily, version, copyright);
   let dimensions = Dimensions::new(tile_width, ascender_height, descender_height, space_width);
-  let config = Config::new(metadata, dimensions);
+  let kerning = Kerning::new(true, -1, vec![]);
+  let config = Config::new(metadata, dimensions, kerning);
 
   let config_json = serde_json::to_string_pretty(&config)?;
   println!("{config_json}");

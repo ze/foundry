@@ -13,12 +13,23 @@ impl UnicodeChar {
   pub const UNICODE_SPACE: UnicodeChar = UnicodeChar::Char(SPACE);
   pub const UNICODE_NBSP: UnicodeChar = UnicodeChar::Char(NBSP);
 
-  pub fn is_rendering(self) -> bool {
-    !self.is_space()
+  pub fn should_kern(self) -> bool {
+    self != UnicodeChar::NotDef && !self.is_space()
   }
 
   pub fn is_space(self) -> bool {
     self == UnicodeChar::UNICODE_SPACE || self == UnicodeChar::UNICODE_NBSP
+  }
+}
+
+impl TryFrom<UnicodeChar> for char {
+  type Error = &'static str;
+
+  fn try_from(value: UnicodeChar) -> Result<Self, Self::Error> {
+    match value {
+      UnicodeChar::NotDef => Err(".notdef has no unicode equivalent"),
+      UnicodeChar::Char(c) => Ok(c),
+    }
   }
 }
 

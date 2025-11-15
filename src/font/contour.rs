@@ -4,8 +4,8 @@ use multimap::MultiMap;
 
 use crate::font::point::{Edge, Point};
 
-pub fn contour(glyph: &[Point]) -> Vec<Vec<Point>> {
-  clusters(glyph)
+pub fn contour(pixels: &[Point]) -> Vec<Vec<Point>> {
+  clusters(pixels)
     .into_iter()
     .map(|c| edges(&c))
     .flat_map(|e| connect_edges(&e))
@@ -28,6 +28,9 @@ fn connect_edges(edges: &[Edge]) -> Vec<Vec<Point>> {
         && map.is_vec(&current)
       {
         let choices = map.get_vec(&current).expect("Non cyclic");
+        if choices.iter().all(|p| visited.contains(&(current, *p))) {
+          break;
+        }
 
         let last_sign = sign(last_edge.0, last_edge.1);
         choices
@@ -35,7 +38,11 @@ fn connect_edges(edges: &[Edge]) -> Vec<Vec<Point>> {
           .filter(|p| !visited.contains(&(current, **p)))
           .find(|p| sign(current, **p) == last_sign)
           .copied()
-          .expect("No sign match")
+          .unwrap_or_else(|| {
+            panic!(
+              "No sign match with edges: {map:?}\nchoices: {choices:?}\nvisited: {visited:?}\ncurrent: {current}\nlast_sign: {last_sign}\nlast_edge: {last_edge:?}"
+            )
+          })
       } else {
         *map.get(&current).expect("Non cyclic")
       };
@@ -122,10 +129,10 @@ fn edges(cluster: &HashSet<Point>) -> Vec<Edge> {
     .collect()
 }
 
-fn clusters(glyph: &[Point]) -> Vec<HashSet<Point>> {
+fn clusters(pixels: &[Point]) -> Vec<HashSet<Point>> {
   let mut clusters = Vec::new();
   let mut visited: HashSet<Point> = HashSet::new();
-  let points: HashSet<Point> = glyph.iter().copied().collect();
+  let points: HashSet<Point> = pixels.iter().copied().collect();
 
   let mut queue: VecDeque<Point> = VecDeque::new();
   for p in &points {

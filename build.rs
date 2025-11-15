@@ -6,7 +6,6 @@ fn main() {
   println!("cargo::rerun-if-changed=frontend/src");
   println!("cargo::rerun-if-changed=frontend/package.json");
   println!("cargo::rerun-if-changed=frontend/vite.config.ts");
-  println!("cargo::rerun-if-changed=frontend/public");
   println!("cargo::rerun-if-changed=frontend/index.html");
   let program = which("npm").expect("Failed to find npm");
   let output = Command::new(program)

@@ -1,7 +1,10 @@
 mod builder;
 pub mod config;
 mod contour;
+pub mod dimensions;
 mod glyphs;
+pub mod kerning;
+pub mod metadata;
 mod point;
 pub mod project;
 mod sheet;

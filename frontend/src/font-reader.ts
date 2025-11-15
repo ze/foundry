@@ -48,8 +48,16 @@ export default class FontReader {
     return this.characters.filter((c) => FontReader.isAlpha(c) || FontReader.isNumber(c));
   }
 
+  get currency(): string[] {
+    return this.characters.filter((c) => "%$€£¥¢".includes(c));
+  }
+
   get symbols(): string[] {
     return this.characters.filter((c) => c in [`!"#$%&'()*+,-./`]);
+  }
+
+  get nonWhitespace(): string[] {
+    return this.characters.filter((c) => c.trim().length !== 0);
   }
 
   private static isAlphaLower(c: string): boolean {

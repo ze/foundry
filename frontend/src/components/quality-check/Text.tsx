@@ -3,7 +3,7 @@ import { useCallback, useState, type ChangeEvent, type ReactNode } from "react";
 type WrappedGroupProps = {
   children: ReactNode;
 };
-export const WrappedGroup = ({ children }: WrappedGroupProps) => (
+export const Group = ({ children }: WrappedGroupProps) => (
   <div className="row w-full max-w-[90vw] [&>:not(:last-child)]:mr-2">{children}</div>
 );
 
@@ -82,7 +82,7 @@ const TextBlock = ({ label, block, reversible, reversed, setReversed, size }: Te
         )}
       </div>
       <div className="overflow-x-scroll">
-        <div className="min-w-fit px-3 pb-2 text-4xl">
+        <div className="min-w-fit px-3 pb-2 text-3xl">
           {block.map((row, i) => (
             <TextRow row={row} key={i} reversed={reversed} />
           ))}
@@ -113,7 +113,7 @@ type TextChunkProps = {
 };
 const TextChunk = ({ chunk, index, reversed }: TextChunkProps) => {
   const text = reversed ? chunk.split("").reverse().join("") : chunk;
-  return <span className={index == 0 ? undefined : "ml-1.5"}>{text}</span>;
+  return <span className={"whitespace-nowrap" + (index == 0 ? "" : " ml-1.5")}>{text}</span>;
 };
 
 function permutations(left: string[], right: string[]): string[][] {

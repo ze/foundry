@@ -23,6 +23,8 @@ export default defineConfig([
   },
   eslintConfigPrettier,
   {
-    "no-unused-vars": ["error", { argsIgnorePattern: "^_" }],
+    rules: {
+      "no-unused-vars": ["error", { argsIgnorePattern: "^_" }],
+    },
   },
 ]);

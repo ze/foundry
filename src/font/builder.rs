@@ -1,9 +1,14 @@
-use std::cmp::{max, min};
+use std::{
+  cmp::{max, min},
+  collections::HashMap,
+  vec,
+};
 
-use anyhow::{Ok, Result};
+use anyhow::Result;
+use multimap::MultiMap;
 use read_fonts::{
-  tables::{cmap::PlatformId, os2::SelectionFlags},
-  types::Tag,
+  tables::{cmap::PlatformId, layout::LookupFlag, os2::SelectionFlags},
+  types::{GlyphId16, Tag},
 };
 use time::UtcDateTime;
 use write_fonts::{
@@ -11,10 +16,17 @@ use write_fonts::{
   tables::{
     cmap::{Cmap, Cmap4, CmapSubtable, EncodingRecord},
     glyf::{Bbox, Glyf, GlyfLocaBuilder, SimpleGlyph},
-    gpos::Gpos,
+    gpos::{
+      Gpos, PairPos, PairPosFormat1, PairSet, PairValueRecord, PositionLookup, PositionLookupList,
+      ValueRecord,
+    },
     head::{Flags, Head, MacStyle},
     hhea::Hhea,
     hmtx::Hmtx,
+    layout::{
+      CoverageFormat1, CoverageTable, Feature, FeatureList, FeatureRecord, LangSys, Lookup, Script,
+      ScriptList, ScriptRecord,
+    },
     loca::{Loca, LocaFormat},
     maxp::Maxp,
     name::{Name, NameRecord},
@@ -26,8 +38,7 @@ use write_fonts::{
 };
 
 use crate::font::{
-  config::{Config, Dimensions, Metadata},
-  glyphs::Glyph,
+  config::Config, dimensions::Dimensions, glyphs::Glyph, metadata::Metadata,
   unicode_char::UnicodeChar,
 };
 
@@ -36,6 +47,7 @@ const GRID_SIZE: u16 = 16;
 
 pub struct Builder {
   glyphs: Vec<Glyph>,
+  kerning: HashMap<(char, char), i16>,
 }
 
 #[allow(
@@ -44,8 +56,8 @@ pub struct Builder {
   clippy::cast_sign_loss
 )]
 impl Builder {
-  pub fn new(glyphs: Vec<Glyph>) -> Self {
-    Self { glyphs }
+  pub fn new(glyphs: Vec<Glyph>, kerning: HashMap<(char, char), i16>) -> Self {
+    Self { glyphs, kerning }
   }
 
   pub fn build(&mut self, config: &Config) -> Result<Vec<u8>> {
@@ -55,6 +67,10 @@ impl Builder {
       .glyphs
       .iter_mut()
       .for_each(|glyph| glyph.scale_data(scale_factor));
+    self
+      .kerning
+      .iter_mut()
+      .for_each(|(_, value)| *value *= one_unit);
 
     let bounding_box = self.glyphs_rect();
 
@@ -74,7 +90,7 @@ impl Builder {
 
     let os2 = self.os2(config.metadata(), first_code, last_code, &hhea);
 
-    // let gpos = Builder::gpos();
+    let gpos = self.gpos();
 
     let name = Builder::name(config.metadata());
     let post = Builder::post();
@@ -87,7 +103,7 @@ impl Builder {
     builder.add_table(&cmap)?;
     builder.add_table(&loca)?;
     builder.add_table(&glyf)?;
-    // builder.add_table(&gpos)?;
+    builder.add_table(&gpos)?;
     builder.add_table(&name)?;
     builder.add_table(&post)?;
 
@@ -181,9 +197,9 @@ impl Builder {
     let max_points = self
       .glyphs
       .iter()
-      .map(|g| g.data.iter().map(Vec::len).sum::<usize>() as u16)
+      .map(|g| g.contours.iter().map(Vec::len).sum::<usize>() as u16)
       .max();
-    let max_contours = self.glyphs.iter().map(|g| g.data.len() as u16).max();
+    let max_contours = self.glyphs.iter().map(|g| g.contours.len() as u16).max();
     Maxp {
       num_glyphs,
       max_points,
@@ -376,9 +392,78 @@ impl Builder {
     Ok(builder.build())
   }
 
-  fn _gpos() -> Gpos {
-    todo!()
-    // Gpos::new(script_list, feature_list, lookup_list)
+  fn gpos(&self) -> Gpos {
+    const DFLT_TAG: Tag = Tag::new(b"DFLT");
+    const LATN_TAG: Tag = Tag::new(b"latn");
+    const KERN_TAG: Tag = Tag::new(b"kern");
+
+    let lang_sys = LangSys::new(vec![0]);
+    let script = Script::new(Some(lang_sys), Vec::new());
+    let dflt_record = ScriptRecord::new(DFLT_TAG, script.clone());
+    let latn_record = ScriptRecord::new(LATN_TAG, script);
+    let script_list = ScriptList::new(vec![dflt_record, latn_record]);
+
+    let feature = Feature::new(None, vec![0]);
+    let feature_record = FeatureRecord::new(KERN_TAG, feature);
+    let feature_list = FeatureList::new(vec![feature_record]);
+
+    let char_to_gid: HashMap<char, u16> = self
+      .glyphs
+      .iter()
+      .enumerate()
+      .filter_map(|(id, g)| match g.character {
+        UnicodeChar::NotDef => None,
+        UnicodeChar::Char(c) => Some((c, id as u16)),
+      })
+      .collect();
+
+    let grouped_kerning: MultiMap<u16, (u16, i16)> = self
+      .kerning
+      .iter()
+      .map(|((left, right), value)| {
+        (
+          *char_to_gid.get(left).unwrap(),
+          (*char_to_gid.get(right).unwrap(), *value),
+        )
+      })
+      .collect();
+
+    let left_glyphs = {
+      let mut keys: Vec<u16> = grouped_kerning.keys().copied().collect();
+      keys.sort_unstable();
+      keys
+    };
+
+    let glyph_array: Vec<GlyphId16> = left_glyphs.iter().copied().map(GlyphId16::new).collect();
+    let coverage = CoverageFormat1::new(glyph_array);
+    let coverage = CoverageTable::Format1(coverage);
+
+    let pair_sets: Vec<PairSet> = left_glyphs
+      .iter()
+      .map(|left| {
+        let mut pairs = grouped_kerning.get_vec(left).cloned().unwrap();
+        pairs.sort_by_key(|(right, _)| *right);
+
+        let records: Vec<PairValueRecord> = pairs
+          .into_iter()
+          .map(|(right, value)| {
+            PairValueRecord::new(
+              right.into(),
+              ValueRecord::new().with_x_advance(value),
+              ValueRecord::default(),
+            )
+          })
+          .collect();
+        PairSet::new(records)
+      })
+      .collect();
+    let pair_pos = PairPosFormat1::new(coverage, pair_sets);
+    let pair_pos = PairPos::Format1(pair_pos);
+    let lookup = Lookup::new(LookupFlag::IGNORE_MARKS, vec![pair_pos]);
+    let lookup = PositionLookup::Pair(lookup);
+    let lookup_list = PositionLookupList::new(vec![lookup]);
+
+    Gpos::new(script_list, feature_list, lookup_list)
   }
 
   fn name(metadata: &Metadata) -> Name {

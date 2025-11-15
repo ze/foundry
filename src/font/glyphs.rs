@@ -64,29 +64,28 @@ const LATIN_SUPPLEMENT: &str = concat!(
 
 const LATIN_A: &str = "ĀāĂăĄąĆćĈĉĊċČčĎďĐđĒēĔĕĖėĘęĚěĜĝĞğĠġĢģĤĥĦħĨĩĪīĬĭĮįİıĲĳĴĵĶķĸĹĺĻļĽľĿŀŁłŃńŅņŇňŉŊŋŌōŎŏŐőŒœŔŕŖŗŘřŚśŜŝŞşŠšŢţŤťŦŧŨũŪūŬŭŮůŰűŲųŴŵŶŷŸŹźŻżŽž";
 
-const SHEET_SUPPORTED_GLYPHS: &str = concat!(BASIC_LATIN, LATIN_SUPPLEMENT, LATIN_A);
+const SUPPORTED_GLYPHS: &str = concat!(BASIC_LATIN, LATIN_SUPPLEMENT, LATIN_A);
 
 #[derive(Debug, Eq)]
 pub struct Glyph {
   pub character: UnicodeChar,
   pub bbox: Bbox,
-  pub data: Vec<Vec<Point>>,
+  pub contours: Vec<Vec<Point>>,
+  pub pixels: Vec<Point>,
 }
 
 impl Glyph {
-  pub fn new(character: UnicodeChar, data: Vec<Vec<Point>>) -> Self {
+  pub fn new(character: UnicodeChar, contours: Vec<Vec<Point>>, pixels: Vec<Point>) -> Self {
     Self {
       character,
-      bbox: Glyph::bbox(&data),
-      data,
+      bbox: Glyph::create_bbox(&contours),
+      contours,
+      pixels,
     }
   }
 
   pub fn glyphs() -> Vec<UnicodeChar> {
-    let mut glyphs: Vec<_> = SHEET_SUPPORTED_GLYPHS
-      .chars()
-      .map(UnicodeChar::Char)
-      .collect();
+    let mut glyphs: Vec<_> = SUPPORTED_GLYPHS.chars().map(UnicodeChar::Char).collect();
     glyphs.push(UnicodeChar::NotDef);
     glyphs.push(UnicodeChar::UNICODE_SPACE);
     glyphs.push(UnicodeChar::UNICODE_NBSP);
@@ -96,7 +95,7 @@ impl Glyph {
 
   pub fn scale_data(&mut self, scale: i16) {
     self
-      .data
+      .contours
       .iter_mut()
       .for_each(|contour| contour.iter_mut().for_each(|point| point.scale(scale)));
     self.bbox = Bbox {
@@ -107,7 +106,7 @@ impl Glyph {
     }
   }
 
-  fn bbox(data: &Vec<Vec<Point>>) -> Bbox {
+  fn create_bbox(data: &Vec<Vec<Point>>) -> Bbox {
     let mut x_min = 0i16;
     let mut y_min = 0i16;
     let mut x_max = 0i16;
@@ -146,7 +145,7 @@ impl Glyph {
 impl From<&Glyph> for SimpleGlyph {
   fn from(val: &Glyph) -> Self {
     let contours = val
-      .data
+      .contours
       .iter()
       .map(|contour| {
         contour

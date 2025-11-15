@@ -43,9 +43,8 @@ impl Point {
     ]
   }
 
-  #[allow(dead_code)]
-  pub fn surrounding(self) -> Vec<Point> {
-    vec![
+  pub fn surrounding(self) -> [Self; 8] {
+    [
       Point::new(self.x - 1, self.y - 1),
       Point::new(self.x, self.y - 1),
       Point::new(self.x + 1, self.y - 1),

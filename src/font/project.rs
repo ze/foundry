@@ -4,7 +4,7 @@ use std::{
   path::{Path, PathBuf},
 };
 
-use anyhow::{Ok, Result};
+use anyhow::Result;
 use serde::Serialize;
 
 use crate::font::{
@@ -58,7 +58,9 @@ impl Project {
   pub fn build(&self) -> Result<()> {
     let glyphs = self.read_glyphs()?;
 
-    let mut builder = Builder::new(glyphs);
+    let kerning = self.config.kerning().kern(&glyphs);
+
+    let mut builder = Builder::new(glyphs, kerning);
     let bytes = builder.build(&self.config)?;
 
     let mut file = File::create(self.font_path())?;
@@ -71,21 +73,21 @@ impl Project {
     let glyph_pixels = self.sheet.read(&self.config)?;
     let glyph_chars = Glyph::glyphs();
     let mut glyphs: Vec<Glyph> = glyph_pixels
-      .iter()
+      .into_iter()
       .enumerate()
-      .filter_map(|(i, c)| {
+      .filter_map(|(i, pixels)| {
         let character = *glyph_chars.get(i)?;
 
-        if !character.is_rendering() {
-          return Some(Glyph::new(character, Vec::new()));
+        if character.is_space() {
+          return Some(Glyph::new(character, Vec::new(), Vec::new()));
         }
 
-        let contour = contour(c);
+        let contour = contour(&pixels);
         if contour.is_empty() {
           return None;
         }
 
-        Some(Glyph::new(character, contour))
+        Some(Glyph::new(character, contour, pixels))
       })
       .collect();
     glyphs.sort();

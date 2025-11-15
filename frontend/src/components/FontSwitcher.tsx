@@ -32,7 +32,7 @@ const FontSwitcher = ({ font, setFontOverride }: FontSwitcherProps) => {
       font,
       data,
     });
-  }, []);
+  }, [setFontOverride]);
 
   return (
     <div>
