@@ -20,6 +20,7 @@ use write_fonts::{
       Gpos, PairPos, PairPosFormat1, PairSet, PairValueRecord, PositionLookup, PositionLookupList,
       ValueRecord,
     },
+    gsub::{Gsub, SubstitutionLookupList},
     head::{Flags, Head, MacStyle},
     hhea::Hhea,
     hmtx::Hmtx,
@@ -90,6 +91,8 @@ impl Builder {
 
     let os2 = self.os2(config.metadata(), first_code, last_code, &hhea);
 
+    let gsub = Builder::gsub();
+
     let gpos = self.gpos();
 
     let name = Builder::name(config.metadata());
@@ -103,6 +106,7 @@ impl Builder {
     builder.add_table(&cmap)?;
     builder.add_table(&loca)?;
     builder.add_table(&glyf)?;
+    builder.add_table(&gsub)?;
     builder.add_table(&gpos)?;
     builder.add_table(&name)?;
     builder.add_table(&post)?;
@@ -390,6 +394,23 @@ impl Builder {
     }
 
     Ok(builder.build())
+  }
+
+  fn gsub() -> Gsub {
+    const DFLT_TAG: Tag = Tag::new(b"DFLT");
+    const LATN_TAG: Tag = Tag::new(b"latn");
+
+    let lang_sys = LangSys::new(vec![0]);
+    let script = Script::new(Some(lang_sys), Vec::new());
+    let dflt_record = ScriptRecord::new(DFLT_TAG, script.clone());
+    let latn_record = ScriptRecord::new(LATN_TAG, script);
+
+    let script_list = ScriptList::new(vec![dflt_record, latn_record]);
+
+    let feature_list = FeatureList::new(vec![]);
+    let lookup_list = SubstitutionLookupList::new(vec![]);
+
+    Gsub::new(script_list, feature_list, lookup_list)
   }
 
   fn gpos(&self) -> Gpos {
