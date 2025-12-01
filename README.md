@@ -6,9 +6,39 @@ Font building toolkit
 
 ## Usage
 
+### Commands
+
+Create a new font project
+
+```
+foundry init
+```
+
+Build your font
+
+```
+foundry build
+```
+
+View your font on a webpage
+
+```
+foundry server
+```
+
+Help
+
+```
+foundry help
+```
+
 ## Development
 
 ### Building
+
+```
+cargo build
+```
 
 ### Optimizing
 
